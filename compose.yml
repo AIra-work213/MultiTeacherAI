@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    networks:
+      - multimodal_network
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_db:/server/chroma_db
+    env_file:
+      - .env
+    networks:
+      - multimodal_network
+  
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: Denis
+      POSTGRES_PASSWORD: Akirenok17
+      POSTGRES_DB: documents
+    ports:
+      - "5433:5432"
+    volumes:
+      - data:/var/lib/postgresql/data
+    networks:
+      - multimodal_network
+networks:
+  multimodal_network:
+    driver: bridge
+
+volumes:
+  data:
+  chroma_db:
