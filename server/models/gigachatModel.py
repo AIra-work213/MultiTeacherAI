@@ -22,7 +22,6 @@ class GigaModel:
         return res
     
     def get_questions(self, text):
-        print(f"Получение вопросов для текста: {text}")
         response = self.giga.chat(
             "Тебе дан текст:\n" +
             f"{text}\n\n" +
@@ -35,7 +34,6 @@ class GigaModel:
         start_index = response.choices[0].message.content.find('{')
         end_index = response.choices[0].message.content.rfind('}') + 1
         res = response.choices[0].message.content[start_index:end_index]
-        print(res)
         return json.loads(res)
 
 if __name__ == '__main__':
