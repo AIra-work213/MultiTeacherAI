@@ -55,5 +55,11 @@ async def find_max_topic_id():
         max_id = result.scalar()
         return max_id if max_id is not None else 0
 
+async def find_topic_id(topic, user_id):
+    async with async_session_factory() as session:
+        query = select(DocumentMetadata.topic_id).where(DocumentMetadata.topic == topic, DocumentMetadata.uploader_id == user_id)
+        result = await session.execute(query)
+        return [{"topic_id": row.topic_id} for row in result.fetchall()][0]
+
 if __name__ == "__main__":
     asyncio.run(init_db())
