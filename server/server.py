@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 from database.chroma_db import ChromaDB
-from database.postgres import init_db, insert_metadata, find_metadata_by_id, find_max_topic_id
+from database.postgres import init_db, insert_metadata, find_metadata_by_id, find_max_topic_id, find_topic_id
 import asyncio
 import json
 from PyPDF2 import PdfReader
@@ -33,6 +33,11 @@ class TestData(BaseModel):
     answers: list[str]
 class GetTopics(BaseModel):
     user_id: int
+
+class ForTest(BaseModel):
+    user_id: int
+    topic: str
+    topic_ID: Optional[int] = None
 
 
 @app.post("/upload")
@@ -71,22 +76,23 @@ async def upload_file(request: Request, metadata: str = Form(...), file: UploadF
         length_function=len
     )
     
-    text_chunks = text_splitter.split_text(myFile)
-    metadatas_for_chunks = [
-        {'uploader_id': str(metadata_dict["user_id"]), 'file_name': metadata_dict["file_name"]}
-    ] * len(text_chunks)
-
-    vectorstore.add_texts(texts=text_chunks, metadatas=metadatas_for_chunks)
-    
 
     metadata_dict["topic"] = model.get_topic(myFile)
     request.app.state.topic_id = getattr(request.app.state, "topic_id", 0) + 1
     metadata_dict["topic_id"] = request.app.state.topic_id
+
+    text_chunks = text_splitter.split_text(myFile)
+    metadatas_for_chunks = [
+        {'uploader_id': str(metadata_dict["user_id"]), 'file_name': metadata_dict["file_name"], 'topic_id': metadata_dict["topic_id"]}
+    ] * len(text_chunks)
+
+    vectorstore.add_texts(texts=text_chunks, metadatas=metadatas_for_chunks)
+
     await insert_metadata(metadata_dict)
     return {"status": True, "file_name": metadata_dict["file_name"], "topic": metadata_dict["topic"], "topic_id": metadata_dict["topic_id"]}
 
 
-@app.post("/quest") # вроде работает
+@app.post("/quest") 
 async def quest(request: QuestRequest):
     '''Обрабатывает текстовый запрос пользователя и возвращает ответ'''
     data = vectorstore.query(user_id=request.user_id, quest=request.quest) 
@@ -95,13 +101,22 @@ async def quest(request: QuestRequest):
 
 
 @app.post("/test") # не работает
-async def test(topic: Optional[int] = None):
+async def test(data: ForTest):
     '''Проводит тестирование для пользователя по теме'''
+    if data.topic_ID is not None:
+        id = data.topic_ID
+    else:
+        res = await find_topic_id(data.topic, data.user_id)
+        id = res['topic_id']
+    
+    all_text = vectorstore.get_texts_by_topic_id(data.user_id, id)
+    ans = model.get_questions(all_text)
+    questions = ans['questions']
+    answers = ans['answers']
+    return {"is_success": True, "questions": questions, "answers": answers}
 
-    return {"is_success": True, "questions": [], "answers": []}
 
-
-@app.post("/topics") # вроде работает
+@app.post("/topics") 
 async def topics(data: GetTopics):
     topics = await find_metadata_by_id(data.user_id)
     '''Выполняет поиск в SQL тем файлов, который были загружены этим айди (не более 10)'''
@@ -109,6 +124,10 @@ async def topics(data: GetTopics):
     for t in topics:
         ans += f"Тема: {t['topic']}. ID темы: {t['topic_id']}.\n\n"
     return {"response": ans}
+
+@app.get('/connect')
+async def chech_connection():
+    return {"status": "Server is running"}
 
 
 if __name__ == "__main__":
