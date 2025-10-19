@@ -59,6 +59,8 @@ async def find_topic_id(topic, user_id):
     async with async_session_factory() as session:
         query = select(DocumentMetadata.topic_id).where(DocumentMetadata.topic == topic, DocumentMetadata.uploader_id == user_id)
         result = await session.execute(query)
+        if result.rowcount == 0:
+            return
         return [{"topic_id": row.topic_id} for row in result.fetchall()][0]
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ class ChromaDB:
         results = self.db.similarity_search(quest, k=n, filter={"uploader_id": str(user_id)})
         return '\n'.join([doc.page_content for doc in results])
     def get_texts_by_topic_id(self, user_id: int, topic_id: int) -> list[str]:
-        results = self.db.similarity_search("", k=50, filter={"uploader_id": str(user_id), "topic_id": topic_id})
+        results = self.db.similarity_search("", k=50, filter={"$and": [{"uploader_id": str(user_id)}, {"topic_id": topic_id}]})
         return '\n'.join([doc.page_content for doc in results])
 
 
